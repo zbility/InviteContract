@@ -39,20 +39,11 @@ library SafeMath {
  例如：
     reward = 100
     decimal = 100
-    rule = [40,6,6,6,6,6,6,6,6,6,6]
+    rule = [60,40]
  解析：
-   1级获得 40
-   2级获得  6
-   3级获得  6
-   4级获得  6
-   5级获得  6
-   6级获得  6
-   7级获得  6
-   8级获得  6
-   9级获得  6
-   10级获得 6
-   11级获得 6
-   leader  6(未分配的量)
+   1级获得 60
+   2级获得  40
+   leader  0(未分配的量)
 #################################################################
 */
 contract InviteInterface {
@@ -74,7 +65,7 @@ contract InviteInterface {
 
 contract Invite is InviteInterface {
 
-    uint256 constant private LEVEL = 3;
+    uint256 constant private LEVEL = 2;
     address private _leader;
     address private _truster;
     uint256[] private _rule;
