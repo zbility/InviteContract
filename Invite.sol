@@ -37,21 +37,22 @@ library SafeMath {
 * 3. decimal & rule 定义权重比例；
 #################################################################
  例如：
-    reward = 7500000
-    decimal = 75
-    rule = [30,5,5,5,5,5,5,5,5,5]
+    reward = 100
+    decimal = 100
+    rule = [40,6,6,6,6,6,6,6,6,6,6]
  解析：
-   1级获得 3000000
-   2级获得  500000
-   3级获得  500000
-   4级获得  500000
-   5级获得  500000
-   6级获得  500000
-   7级获得  500000
-   8级获得  500000
-   9级获得  500000
-   10级获得 500000
-   主承销商获得  未分配的量
+   1级获得 40
+   2级获得  6
+   3级获得  6
+   4级获得  6
+   5级获得  6
+   6级获得  6
+   7级获得  6
+   8级获得  6
+   9级获得  6
+   10级获得 6
+   11级获得 6
+   leader  6(未分配的量)
 #################################################################
 */
 contract InviteInterface {
@@ -66,28 +67,26 @@ contract InviteInterface {
 
     function checkRule() external view returns (bool);
 
-    function getInviter(address member) external view returns (address);
+    function getReward(address account) external view returns (uint256);
 
-    function getReward(address member) external view returns (uint256);
-
-    function addMember(address member, address inviter, uint256 reward) external returns (bool);
+    function reward(uint256 amount, address[] inviters) external returns (bool);
 }
 
 contract Invite is InviteInterface {
 
-    uint256 constant private LEVEL = 12;
+    uint256 constant private LEVEL = 3;
     address private _leader;
     address private _truster;
     uint256[] private _rule;
     uint256 private _decimal;
-    mapping(address => address) private _inviters;
     mapping(address => uint256) private _rewards;
 
-    event rewardEvent(address member, address receiver, uint256 level, uint256 amount);
+    event rewardMember(address receiver, uint256 amount);
+    event rewardLeader(address receiver, uint256 amount);
 
     /**
      * #leader: 承销节点自己的地址
-     * #truster: 可信调用合约地址
+     * #truster: 官方调用合约地址
      * #decimal: 将奖励精确划分份额
      * #rule: 每层权重规则
      */
@@ -115,41 +114,36 @@ contract Invite is InviteInterface {
         return _decimal;
     }
 
-    function getInviter(address member) external view returns (address) {
-        return _inviters[member];
+    function getReward(address account) external view returns (uint256) {
+        return _rewards[account];
     }
 
-    function getReward(address member) external view returns (uint256) {
-        return _rewards[member];
-    }
-
-    function addMember(address member, address inviter, uint256 reward) external returns (bool){
+    function reward(uint256 amount, address[] inviters) external returns (bool){
         require(msg.sender == _truster);
-        require(_checkRule());
-        require(reward > 0);
-        require(inviter != address(0x0) && member != address(0x0));
-        _addInviter(member, inviter);
+        require(amount > 0);
 
-        uint256 balance = reward;
-        address to = _inviters[member];
+        uint256 balance = amount;
         for (uint256 i = 0; i < LEVEL; i++) {
-            if (i > _rule.length || balance == 0 || to == address(0x0)) {
+            if (i >= _rule.length || i >= inviters.length || balance == 0) {
+                break;
+            }
+            address to = inviters[i];
+            if (to == address(0x0)) {
                 break;
             }
             if (_rule[i] > 0) {
-                uint256 amount = SafeMath.div(SafeMath.mul(reward, _rule[i]), _decimal);
-                if (balance < amount) {
-                    amount = balance;
+                uint256 _amount = SafeMath.div(SafeMath.mul(amount, _rule[i]), _decimal);
+                if (balance < _amount) {
+                    _amount = balance;
                 }
-                _rewards[to] = SafeMath.add(_rewards[to], amount);
-                emit rewardEvent(member, to, 1, amount);
-                balance = SafeMath.sub(balance, amount);
+                _rewards[to] = SafeMath.add(_rewards[to], _amount);
+                emit rewardMember(to, _amount);
+                balance = SafeMath.sub(balance, _amount);
             }
-            to = _inviters[to];
         }
         if (balance > 0) {
             _rewards[_leader] = SafeMath.add(_rewards[_leader], balance);
-            emit rewardEvent(member, _leader, 0, balance);
+            emit rewardLeader(_leader, balance);
         }
         return true;
     }
@@ -171,13 +165,6 @@ contract Invite is InviteInterface {
         }
         if (sum <= 0 || sum > _decimal) {
             return false;
-        }
-        return true;
-    }
-
-    function _addInviter(address member, address inviter) internal returns (bool){
-        if (_inviters[member] != inviter) {
-            _inviters[member] = inviter;
         }
         return true;
     }
